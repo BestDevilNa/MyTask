@@ -473,3 +473,114 @@ input[type="date"]:focus, input[type="text"]:focus { outline: none; border-color
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
 }
+
+/* ============================================================
+ * M2 · 通用计时条（ITTO 分拣 / 术语配对）
+ * ============================================================ */
+.timer-wrap { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+.timer-bar { flex: 1; height: 8px; background: rgba(0,0,0,.08); border-radius: var(--r-pill); overflow: hidden; }
+.timer-bar i {
+  display: block; height: 100%; width: 100%;
+  background: var(--zzz-yellow); border-radius: var(--r-pill);
+  transition: width .1s linear;
+}
+.timer-bar.ember i { background: var(--zzz-ember); }
+.timer-num {
+  font-family: var(--font-num); font-size: 20px; line-height: 1;
+  color: var(--zzz-ink); min-width: 52px; text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ============================================================
+ * M2 · ITTO 分拣：当前卡 + 三栏分拣槽
+ * ============================================================ */
+.sort-card {
+  background: var(--zzz-ink); color: var(--zzz-white);
+  border-radius: var(--r-card); padding: 22px 18px;
+  position: relative; overflow: hidden; text-align: center;
+  margin-bottom: 14px;
+}
+.sort-card .card-name { font-size: 19px; font-weight: 700; line-height: 1.4; position: relative; z-index: 1; }
+.sort-card .card-proc { margin-top: 6px; position: relative; z-index: 1; color: var(--zzz-yellow); font-size: 12.5px; }
+.sort-card.hit  { animation: sorthit .3s; }
+.sort-card.miss { animation: sortmiss .3s; }
+@keyframes sorthit  { 0% { transform: scale(1); } 40% { transform: scale(1.04); border: 2px solid var(--zzz-yellow); } 100% { transform: scale(1); } }
+@keyframes sortmiss { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-8px); } 60% { transform: translateX(7px); } }
+.bins { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.bin {
+  font-family: inherit; cursor: pointer;
+  background: var(--zzz-white); color: var(--zzz-ink);
+  border: 1.5px solid rgba(0,0,0,.12); border-radius: var(--r-btn);
+  padding: 14px 6px; text-align: center;
+  transition: all .2s;
+}
+.bin:hover { border-color: var(--zzz-ink); transform: translateY(-2px); }
+.bin .bin-name { font-size: 14px; font-weight: 700; }
+.bin .bin-en { display: block; margin-top: 4px; font-family: var(--font-num); font-size: 10px; letter-spacing: .06em; color: var(--zzz-grey); text-transform: uppercase; }
+.bin .bin-count { display: block; margin-top: 8px; font-family: var(--font-num); font-size: 18px; color: var(--zzz-ink); }
+.bin.ok  { background: rgba(216,250,0,.16); border-color: var(--zzz-yellow); }
+.bin.no  { background: rgba(255,106,43,.14); border-color: var(--zzz-ember); }
+
+/* ============================================================
+ * M2 · 术语配对：4×4 翻牌网格
+ * ============================================================ */
+.flip-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 9px; }
+.flip { position: relative; aspect-ratio: 3/4; perspective: 600px; cursor: pointer; border: none; background: none; padding: 0; font-family: inherit; }
+.flip-inner {
+  position: absolute; inset: 0;
+  transform-style: preserve-3d;
+  transition: transform .35s cubic-bezier(.22,1,.36,1);
+}
+.flip.open .flip-inner, .flip.matched .flip-inner { transform: rotateY(180deg); }
+.face {
+  position: absolute; inset: 0;
+  backface-visibility: hidden; -webkit-backface-visibility: hidden;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: var(--r-btn); padding: 6px;
+  font-size: 11.5px; line-height: 1.45; text-align: center;
+}
+.face.front {
+  background: var(--zzz-ink); color: var(--zzz-yellow);
+  font-family: var(--font-num); font-size: 26px;
+  clip-path: polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%);
+}
+.face.back {
+  transform: rotateY(180deg);
+  background: var(--zzz-white); color: var(--zzz-ink);
+  border: 1.5px solid rgba(0,0,0,.12);
+}
+.flip.open .face.back { border-color: var(--zzz-ink); }
+.flip.matched { pointer-events: none; }
+.flip.matched .face.back { background: rgba(216,250,0,.16); border-color: var(--zzz-yellow); color: #3a4a05; }
+
+/* ============================================================
+ * M2 · 流程接龙：已接轨道 + 乱序步骤池
+ * ============================================================ */
+.chain-track { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+.chain-slot {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--zzz-ink); color: var(--zzz-white);
+  border-radius: var(--r-btn); padding: 11px 14px;
+  animation: enter-pop .3s cubic-bezier(.22,1,.36,1) both;
+}
+.chain-slot .slot-idx { font-family: var(--font-num); font-size: 15px; color: var(--zzz-yellow); flex: none; }
+.chain-empty {
+  border: 1.5px dashed rgba(0,0,0,.18); background: rgba(0,0,0,.03);
+  color: var(--zzz-grey); border-radius: var(--r-btn);
+  padding: 11px 14px; font-size: 13px;
+}
+.chain-pool { display: grid; grid-template-columns: 1fr; gap: 9px; }
+@media (min-width: 768px) { .chain-pool { grid-template-columns: 1fr 1fr; } }
+.chain-step {
+  font-family: inherit; text-align: left; cursor: pointer;
+  background: var(--zzz-white); color: var(--zzz-ink);
+  border: 1.5px solid rgba(0,0,0,.12); border-radius: var(--r-btn);
+  padding: 12px 14px; font-size: 14px; font-weight: 700;
+  transition: all .2s;
+}
+.chain-step:hover { border-color: var(--zzz-ink); }
+.chain-step.wrong { border-color: var(--zzz-ember); background: rgba(255,106,43,.12); animation: shake .38s; }
+.chain-step.gone { display: none; }
+
+/* 统计条（分拣/配对/接龙结算页共用小格） */
+.score-strip { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; text-align: center; position: relative; z-index: 1; }

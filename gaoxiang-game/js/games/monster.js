@@ -30,6 +30,13 @@ GX.games.monster = {
 
     meta.chapters.forEach(function (c) {
       if (!c.enabled) return;
+      if (!GX.mapUnlocked(c.id)) {
+        html += '<div class="panel" style="opacity:.55">'
+          + '<div class="row"><div><div style="font-size:15.5px;font-weight:700">CH.' + c.id + ' ' + c.name + '</div>'
+          + '<div class="tagline" style="margin-top:4px">CH.' + (c.id - 1) + ' 掌握度 ≥60% 后解锁</div></div>'
+          + '<span class="lock-mask">Locked</span></div></div>';
+        return;
+      }
       var n = GX_BANK.byChapter(c.id).length;
       var m = GX.store.data.chapters[c.id] ? GX.store.data.chapters[c.id].mastery : 0;
       html += '<div class="panel">'
@@ -215,10 +222,15 @@ GX.games.monster = {
     this.battle();
   },
 
-  /* ---------- 退出对局 ---------- */
-  exit: function () {
+  /* ---------- 中断对局（导航离开 / 退出） ---------- */
+  abort: function () {
     this.state = null;
     this.inGame = false;
+  },
+
+  /* ---------- 退出对局 ---------- */
+  exit: function () {
+    this.abort();
     GX.ui.go("#today");
   },
 

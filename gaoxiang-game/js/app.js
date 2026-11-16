@@ -134,18 +134,38 @@ GX.stats = {
     c.mastery = Math.round(m * 100);
 
     GX.store.save();
+  },
+
+  /* 小游戏（itto/match/chain）判定：计全局与章节掌握度，不进错题本 */
+  recordRaw: function (ch, right) {
+    var d = GX.store.data;
+    d.stats.answered++;
+    if (right) d.stats.correct++;
+
+    var c = d.chapters[ch] || (d.chapters[ch] = { newC: 0, newOk: 0, revC: 0, revOk: 0, mastery: 0 });
+    c.newC++;
+    if (right) c.newOk++;
+
+    var m = (c.revC === 0) ? c.newOk / c.newC : 0.7 * (c.newOk / c.newC) + 0.3 * (c.revOk / c.revC);
+    c.mastery = Math.round(m * 100);
+    GX.store.save();
   }
 };
 
 /* ---------------- 每日任务 & 连胜 ---------------- */
 GX.daily = {
-  /* 新的一天：重置任务、计算当日必做项 */
+  /* 新的一天（或旧版任务单升级）：计算当日必做项
+     M2 规则：monster 必含 + itto/match/chain 按日轮换 2 款 + 到期错题清扫 */
   ensure: function () {
     var d = GX.store.data, t = GX.util.today();
-    if (d.daily.date === t) return;
-    var required = ["monster"];
+    if (d.daily.date === t && d.daily.v === 2) return;
+    var rot = [["itto", "match"], ["match", "chain"], ["chain", "itto"]];
+    var dn = Math.floor(new Date(t + "T00:00:00").getTime() / 86400000);
+    var required = ["monster"].concat(rot[dn % 3]);
     if (GX.srs.dueList().length > 0) required.push("review");
-    d.daily = { date: t, done: {}, completed: false, required: required };
+    var keepDone = (d.daily.date === t) ? (d.daily.done || {}) : {};
+    var wasDone = (d.daily.date === t) ? d.daily.completed : false;
+    d.daily = { v: 2, date: t, done: keepDone, completed: wasDone, required: required };
     GX.store.save();
   },
 
@@ -153,11 +173,11 @@ GX.daily = {
     var d = GX.store.data;
     d.daily.done[key] = true;
     if (!d.daily.completed) {
-      var all = d.daily.required.every(function (r) { return d.daily.done[r]; });
-      if (all) {
+      var n = d.daily.required.filter(function (r) { return d.daily.done[r]; }).length;
+      if (n >= 3) {                       /* M2：完成 ≥3 项即打卡 */
         d.daily.completed = true;
         this.streakUp();
-        GX.ui.toast("今日任务全部完成！STREAK ×" + d.streak.count);
+        GX.ui.toast("完成 " + n + " 项，今日打卡！STREAK ×" + d.streak.count);
       }
     }
     GX.store.save();
@@ -213,15 +233,35 @@ GX.ui = {
   }
 };
 
+/* ---------------- 游戏注册表（M2） ---------------- */
+/* 游戏厅/今日页统一从此渲染入口；boss 留待 M3 */
+GX.gameList = [
+  { key: "monster", name: "考点歼灭",     en: "Concept Hunter", desc: "全题型 · 连击 COMBO",   entry: "GX.games.monster.picker()" },
+  { key: "itto",    name: "ITTO 分拣",    en: "ITTO Sorter",    desc: "限时 60s · 三栏分拣",   entry: "GX.games.itto.picker()" },
+  { key: "match",   name: "术语配对",     en: "Term Match",     desc: "翻牌 · 记忆强化",       entry: "GX.games.match.picker()" },
+  { key: "chain",   name: "流程接龙",     en: "Process Chain",  desc: "排序 · 变更/风险流程",  entry: "GX.games.chain.start()" },
+  { key: "boss",    name: "街区 BOSS 战", en: "Block Boss",     desc: "30 题限时 · 通关解锁",  locked: "M3" }
+];
+
+/* 街区解锁：CH.1-3 老街区全开；之后前一街区掌握度 ≥60% 解锁下一街区 */
+GX.mapUnlocked = function (ch) {
+  if (ch <= 3) return true;
+  var prev = GX.store.data.chapters[ch - 1];
+  return !!(prev && prev.mastery >= 60);
+};
+
 /* ---------------- 导航点击 ---------------- */
-/* 战斗页不占用 hash，点导航时 hash 可能不变，需显式中断对局并重绘 */
+/* 游戏页不占用 hash，点导航时 hash 可能不变，需显式中断对局并重绘 */
+GX.abortGames = function () {
+  ["monster", "itto", "match", "chain"].forEach(function (k) {
+    var g = GX.games[k];
+    if (g && g.abort) g.abort();
+  });
+};
+
 GX.navGo = function (a) {
   var href = a.getAttribute("href");
-  /* 中断进行中的对局 */
-  if (GX.games.monster && GX.games.monster.state) {
-    GX.games.monster.state = null;
-    GX.games.monster.inGame = false;
-  }
+  GX.abortGames();
   if (location.hash === href) { GX.router.render(); return false; }
   return true;   /* 交由默认 <a> 跳转 */
 };
@@ -238,17 +278,18 @@ GX.pages = {
     var dd = GX.util.diffDays(GX.util.today(), d.settings.examDate);
     var due = GX.srs.dueList().length;
 
-    var taskRow = function (key, name, done, locked) {
-      var cls = locked ? "chip locked" : (done ? "chip on" : "chip");
-      var state = locked ? '<span class="lock-mask">M2 上线</span>'
-                 : done ? '<span class="chip-state">✓ 已完成</span>'
-                 : '<span class="chip-state">待挑战</span>';
-      var act = "";
-      if (!locked) {
-        if (key === "monster") act = 'onclick="GX.games.monster.picker()"';
-        if (key === "review") act = 'onclick="GX.games.monster.run({mode:\'review\'})"';
-      }
-      return '<div class="' + cls + '" ' + act + '>' + name + state + '</div>';
+    var acts = {
+      monster: 'onclick="GX.games.monster.picker()"',
+      review:  'onclick="GX.games.monster.run({mode:\'review\'})"',
+      itto:    'onclick="GX.games.itto.picker()"',
+      match:   'onclick="GX.games.match.picker()"',
+      chain:   'onclick="GX.games.chain.start()"'
+    };
+    var taskRow = function (key, done) {
+      var names = { monster: "考点歼灭", itto: "ITTO 分拣", match: "术语配对", chain: "流程接龙" };
+      var name = key === "review" ? "错题清扫 ×" + due : names[key];
+      return '<div class="' + (done ? "chip on" : "chip") + '" ' + (acts[key] || "") + '>'
+        + name + (done ? '<span class="chip-state">✓ 已完成</span>' : '<span class="chip-state">待挑战</span>') + '</div>';
     };
 
     /* 掌握度摘要（取已作答章节） */
@@ -293,14 +334,11 @@ GX.pages = {
       + '<span class="block-tag">Missions ' + doneCount + '/' + d.daily.required.length + '</span>'
       + '<span class="tagline">Daily Check-in</span></div>'
       + '<div class="grid2">'
-      + taskRow("monster", "考点歼灭", d.daily.done.monster, false)
-      + (due > 0 ? taskRow("review", "错题清扫 ×" + due, d.daily.done.review, false) : "")
-      + taskRow("itto", "ITTO 分拣", false, true)
-      + taskRow("match", "术语配对", false, true)
+      + d.daily.required.map(function (k) { return taskRow(k, !!d.daily.done[k]); }).join("")
       + '</div>'
       + (d.daily.completed
           ? '<p class="muted" style="margin-top:12px;color:var(--zzz-ink)">✓ 今日已打卡，连胜延续中</p>'
-          : '<p class="muted" style="margin-top:12px">完成全部可完成任务即打卡（连胜冻结余 ' + d.streak.freezes + ' 张）</p>')
+          : '<p class="muted" style="margin-top:12px">完成 ≥3 项即打卡（连胜冻结余 ' + d.streak.freezes + ' 张）</p>')
       + '</div>'
 
       /* 掌握度 */
@@ -318,26 +356,22 @@ GX.pages = {
 
   /* ---------- 游戏厅 ---------- */
   arcade: function () {
-    var game = function (name, en, desc, runnable, cls) {
+    var cards = GX.gameList.map(function (g) {
       return '<div class="panel" style="display:flex;justify-content:space-between;align-items:center;gap:12px">'
-        + '<div><div style="font-size:16px;font-weight:700;line-height:1.3">' + name + '</div>'
-        + '<div class="tagline" style="margin-top:4px">' + en + '</div>'
-        + '<div class="muted" style="margin-top:5px">' + desc + '</div></div>'
-        + (runnable ? '<button class="btn primary" onclick="GX.games.monster.picker()">开始</button>'
-                    : '<span class="lock-mask">' + cls + ' 上线</span>')
+        + '<div><div style="font-size:16px;font-weight:700;line-height:1.3">' + g.name + '</div>'
+        + '<div class="tagline" style="margin-top:4px">' + g.en + '</div>'
+        + '<div class="muted" style="margin-top:5px">' + g.desc + '</div></div>'
+        + (g.locked
+            ? '<span class="lock-mask">' + g.locked + ' 上线</span>'
+            : '<button class="btn primary" onclick="' + g.entry + '">开始</button>')
         + '</div>';
-    };
+    }).join("");
+
     GX.ui.view(
       '<div class="page"><div class="wrap">'
       + GX.ui.secNav("游戏厅", "Arcade", "02")
       + '<div class="watermark">Arcade</div>'
-      + '<div class="stack">'
-      + game("考点歼灭", "Concept Hunter", "全题型 · 连击 COMBO", true, "")
-      + game("ITTO 分拣", "ITTO Sorter", "限时 60s · 三栏分拣", false, "M2")
-      + game("术语配对", "Term Match", "翻牌 · 记忆强化", false, "M2")
-      + game("流程接龙", "Process Chain", "排序 · 变更/风险流程", false, "M3")
-      + game("街区 BOSS 战", "Block Boss", "30 题限时 · 通关解锁", false, "M3")
-      + '</div></div></div>'
+      + '<div class="stack">' + cards + '</div></div></div>'
     );
     GX.ui.nav("#arcade");
   },
@@ -348,7 +382,7 @@ GX.pages = {
     var html = '<div class="page"><div class="wrap">'
       + GX.ui.secNav("街区地图", "Block Map", "03")
       + '<div class="watermark">Map</div>'
-      + '<p class="muted" style="margin-bottom:16px">M1 开放 CH.1-3 街区，后续章节随题库扩充解锁。</p><div class="stack">';
+      + '<p class="muted" style="margin-bottom:16px">街区按掌握度推进：前一街区掌握度 ≥60% 解锁下一街区（M3 起改为 Boss 战通关解锁）。</p><div class="stack">';
 
     GX_META.parts.forEach(function (p, pi) {
       var chs = GX_META.chapters.filter(function (c) { return c.part === p.id; });
@@ -360,13 +394,14 @@ GX.pages = {
       chs.forEach(function (c) {
         var st = d.chapters[c.id];
         var m = st ? st.mastery : 0;
-        var playable = c.enabled && GX_BANK.byChapter(c.id).length > 0;
+        var hasQ = c.enabled && GX_BANK.byChapter(c.id).length > 0;
+        var playable = hasQ && GX.mapUnlocked(c.id);
         html += '<div style="margin-bottom:14px">'
           + '<div class="row" style="font-size:13.5px;margin-bottom:6px">'
           + '<span style="' + (playable ? "" : "opacity:.45") + '">CH.' + c.id + ' ' + c.name + '</span>'
           + (playable
               ? '<button class="btn sm" onclick="GX.games.monster.run({chapter:' + c.id + '})">挑战</button>'
-              : '<span class="lock-mask">题库 M2</span>')
+              : '<span class="lock-mask">' + (hasQ ? "CH." + (c.id - 1) + " ≥60% 解锁" : "题库建设中") + '</span>')
           + '</div>'
           + (playable || m > 0 ? '<div class="hp"><i style="width:' + m + '%"></i></div>' : "")
           + '</div>';
@@ -468,7 +503,7 @@ GX.pages = {
       + '</div>'
 
       + '<div class="filmstrip" style="margin:22px 0 14px"></div>'
-      + '<p class="muted" style="text-align:center">高项电竞社 M1 · 信息系统项目管理师备考 · 2027 上半年</p>'
+      + '<p class="muted" style="text-align:center">高项电竞社 M2 · 信息系统项目管理师备考 · 2027 上半年</p>'
       + '</div></div>'
     );
     GX.ui.nav("#profile");
@@ -530,13 +565,8 @@ GX.router = {
       location.hash = (h.indexOf("#/game-") === 0) ? "#arcade" : "#today";
       return;
     }
-    /* 离开游戏视图时清空对局状态（游戏页不走 hash，由自身渲染） */
-    if (GX.games.monster && GX.games.monster.state) {
-      if (page !== "arcade" || !GX.games.monster.inGame) {
-        GX.games.monster.state = null;
-        GX.games.monster.inGame = false;
-      }
-    }
+    /* 离开游戏视图时中断进行中的对局（游戏页不走 hash，由自身渲染） */
+    GX.abortGames();
     GX.daily.ensure();
     GX.pages[page]();
     GX.ui.syncTop();
