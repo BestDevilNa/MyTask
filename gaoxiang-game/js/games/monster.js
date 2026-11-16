@@ -64,7 +64,8 @@ GX.games.monster = {
     if (mode === "review") {
       var today = GX.util.today();
       var due = GX.store.data.wrong.filter(function (w) { return w.next <= today; });
-      qs = due.map(function (w) { return GX_BANK.get(w.qid); });
+      qs = due.map(function (w) { return GX_BANK.get(w.qid); })
+        .filter(function (q) { return !!q; });   /* 过滤 ITTO/流程题（只在对应小游戏清扫） */
       GX.util.shuffle(qs);
       qs = qs.slice(0, this.ROUND);
       if (!qs.length) { GX.ui.toast("没有到期错题，先去打新题吧", "o"); return; }
@@ -73,6 +74,9 @@ GX.games.monster = {
       GX.util.shuffle(pool);
       qs = pool.slice(0, this.ROUND);
     }
+
+    /* 选项乱序（内置题库答案多集中在 A） */
+    qs = qs.map(function (q) { return GX.util.shuffleOpts(q); });
 
     var monMax = mode === "review"
       ? Math.max(8, Math.min(this.MON_HP_REVIEW, qs.length * 4))

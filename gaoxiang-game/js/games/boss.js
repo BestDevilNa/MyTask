@@ -54,7 +54,7 @@ GX.games.boss = {
     if (!GX.mapUnlocked(ch)) { GX.ui.toast("该街区尚未解锁", "o"); return; }
     var pool = GX_BANK.byChapter(ch).slice();
     GX.util.shuffle(pool);
-    var qs = pool.slice(0, this.TOTAL);
+    var qs = pool.slice(0, this.TOTAL).map(function (q) { return GX.util.shuffleOpts(q); });
 
     this.state = {
       ch: ch, qs: qs, idx: 0,

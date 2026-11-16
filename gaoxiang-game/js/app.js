@@ -26,6 +26,19 @@ GX.util = {
     }
     return arr;
   },
+  /* 选项乱序：返回题目副本，opts 打乱并同步重映射 ans */
+  shuffleOpts: function (q) {
+    var order = this.shuffle([0, 1, 2, 3]);
+    var opts = [], ans = 0;
+    for (var i = 0; i < order.length; i++) {
+      opts.push(q.opts[order[i]]);
+      if (order[i] === q.ans) ans = i;
+    }
+    return {
+      id: q.id, ch: q.ch, type: q.type, diff: q.diff, tags: q.tags,
+      q: q.q, opts: opts, ans: ans, exp: q.exp
+    };
+  },
   esc: function (s) {
     return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   }
