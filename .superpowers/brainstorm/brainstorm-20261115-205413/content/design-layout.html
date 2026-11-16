@@ -1,0 +1,71 @@
+<h2>主界面布局设计（手机视图为主，电脑自适应加宽）</h2>
+<p class="subtitle">首页 = 今日任务中心。确认整体布局方向后进入开发设计细节。</p>
+
+<div style="display:flex;gap:20px;flex-wrap:wrap">
+
+  <div style="flex:1;min-width:280px">
+    <div class="mockup">
+      <div class="mockup-header">📱 首页 · 今日</div>
+      <div class="mockup-body" style="background:#f4f6fa;padding:14px;font-size:13px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <b>高项闯关</b>
+          <span style="color:#e8720c">🔥 连续 7 天</span>
+        </div>
+        <div style="background:linear-gradient(135deg,#3e6db5,#5f9bec);color:#fff;border-radius:10px;padding:12px;margin-bottom:10px">
+          <div style="font-size:12px;opacity:.85">距 2027 上半年考试</div>
+          <div style="font-size:22px;font-weight:bold">178 天</div>
+        </div>
+        <div style="background:#fff;border-radius:10px;padding:12px;margin-bottom:10px;box-shadow:0 1px 3px rgba(0,0,0,.08)">
+          <div style="font-weight:bold;margin-bottom:8px">📋 今日任务 <span style="color:#888;font-weight:normal;font-size:12px">1/4</span></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+            <div style="border:1px solid #e2e6ee;border-radius:8px;padding:8px">🎯 考点打怪<br><span style="color:#2e9e5b;font-size:12px">✅ 完成</span></div>
+            <div style="border:1px solid #e2e6ee;border-radius:8px;padding:8px">📦 ITTO 分拣<br><span style="color:#888;font-size:12px">待挑战</span></div>
+            <div style="border:1px solid #e2e6ee;border-radius:8px;padding:8px">🧩 配对消消<br><span style="color:#888;font-size:12px">待挑战</span></div>
+            <div style="border:1px solid #e2e6ee;border-radius:8px;padding:8px">📕 错题复习<br><span style="color:#888;font-size:12px">12 题</span></div>
+          </div>
+        </div>
+        <div style="background:#fff;border-radius:10px;padding:12px;box-shadow:0 1px 3px rgba(0,0,0,.08)">
+          <div style="font-weight:bold;margin-bottom:8px">📊 我的掌握度</div>
+          <div style="font-size:12px">第1章 信息化知识 <span style="color:#2e9e5b">82%</span></div>
+          <div style="height:6px;background:#eee;border-radius:3px;margin:4px 0 8px"><div style="width:82%;height:100%;background:#2e9e5b;border-radius:3px"></div></div>
+          <div style="font-size:12px">第2章 项目管理概论 <span style="color:#e8720c">31%</span></div>
+          <div style="height:6px;background:#eee;border-radius:3px;margin-top:4px"><div style="width:31%;height:100%;background:#e8720c;border-radius:3px"></div></div>
+        </div>
+        <div style="display:flex;justify-content:space-around;margin-top:12px;padding-top:10px;border-top:1px solid #e2e6ee;color:#666;font-size:12px">
+          <span style="color:#3e6db5;font-weight:bold">🏠 今日</span><span>🎮 游戏厅</span><span>🗺️ 章节</span><span>📕 错题</span><span>👤 我的</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="flex:1;min-width:280px">
+    <div class="mockup">
+      <div class="mockup-header">🎮 游戏厅 · 5 款游戏</div>
+      <div class="mockup-body" style="padding:14px;font-size:13px">
+        <div style="border:1px solid #e2e6ee;border-radius:10px;padding:10px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">
+          <div><b>🎯 考点打怪</b><br><span style="color:#888;font-size:12px">答对攻击·连击加成 | 全题型刷题</span></div><span style="background:#3e6db5;color:#fff;border-radius:6px;padding:4px 10px;font-size:12px">开始</span>
+        </div>
+        <div style="border:1px solid #e2e6ee;border-radius:10px;padding:10px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">
+          <div><b>📦 ITTO 分拣</b><br><span style="color:#888;font-size:12px">限时分拣输入/工具/输出 | 攻克ITTO</span></div><span style="background:#3e6db5;color:#fff;border-radius:6px;padding:4px 10px;font-size:12px">开始</span>
+        </div>
+        <div style="border:1px solid #e2e6ee;border-radius:10px;padding:10px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">
+          <div><b>🧩 配对消消</b><br><span style="color:#888;font-size:12px">术语↔定义翻牌 | 快速记忆</span></div><span style="background:#3e6db5;color:#fff;border-radius:6px;padding:4px 10px;font-size:12px">开始</span>
+        </div>
+        <div style="border:1px solid #e2e6ee;border-radius:10px;padding:10px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">
+          <div><b>🚥 流程接龙</b><br><span style="color:#888;font-size:12px">步骤排序 | 变更/风险/立项流程</span></div><span style="background:#3e6db5;color:#fff;border-radius:6px;padding:4px 10px;font-size:12px">开始</span>
+        </div>
+        <div style="border:1px dashed #c77ef0;border-radius:10px;padding:10px;display:flex;justify-content:space-between;align-items:center">
+          <div><b>🐉 章节 Boss 战</b><br><span style="color:#888;font-size:12px">30题限时综合测验 | 通关解锁下一章</span></div><span style="background:#c77ef0;color:#fff;border-radius:6px;padding:4px 10px;font-size:12px">挑战</span>
+        </div>
+      </div>
+    </div>
+    <div style="margin-top:12px;padding:12px;background:#fff8ec;border-radius:8px;font-size:13px">
+      <b>留白区：</b>卡牌收集图鉴 / 经营事件层（B/C 风格元素）预留入口，V2 叠加
+    </div>
+  </div>
+
+</div>
+
+<div class="section" style="margin-top:16px">
+  <p class="subtitle">布局没问题的话，回对话框确认，我将展示技术架构与迭代计划。</p>
+</div>

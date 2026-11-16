@@ -1,0 +1,95 @@
+<h2>哪种游戏化风格最让你想每天打开？</h2>
+<p class="subtitle">同一个功能（学"风险管理"章节）在四种风格下的形态。点击选择你最心动的方向。</p>
+
+<div class="cards">
+
+  <div class="card" data-choice="rpg" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#1a2f4a;padding:12px;min-height:170px">
+      <div style="color:#8fb4e8;font-size:11px;margin-bottom:6px">🗺️ 第3章 · 风险山脉</div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:8px">
+        <div style="background:#2d4a73;color:#cfe0f5;border-radius:6px;height:34px;display:flex;align-items:center;justify-content:center;font-size:12px">✅村口</div>
+        <div style="background:#2d4a73;color:#cfe0f5;border-radius:6px;height:34px;display:flex;align-items:center;justify-content:center;font-size:12px">✅客栈</div>
+        <div style="background:#3e6db5;color:#fff;border-radius:6px;height:34px;display:flex;align-items:center;justify-content:center;font-size:12px;box-shadow:0 0 8px #5f9bec">⚔️风险洞窟</div>
+        <div style="background:#22354f;color:#5a7aa0;border-radius:6px;height:34px;display:flex;align-items:center;justify-content:center;font-size:12px">🔒</div>
+      </div>
+      <div style="background:#0f1d30;border-radius:8px;padding:8px;color:#d7e5f7;font-size:12px">
+        <div style="display:flex;justify-content:space-between"><span>🧙 LV.12 项目法师</span><span>🔥 连续学习 7 天</span></div>
+        <div style="margin-top:6px;background:#2d4a73;border-radius:4px;height:8px"><div style="width:64%;height:100%;background:#5f9bec;border-radius:4px"></div></div>
+        <div style="margin-top:4px;font-size:11px;color:#8fb4e8">章节进度 64% · 通关可解锁"定量分析"技能</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A · RPG 冒险闯关</h3>
+      <p>知识地图 + 关卡 Boss 战。学完章节解锁新区域，角色升级、技能点对应考点掌握度。成长线长，适合"养成上瘾"。</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="tycoon" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#2a3b2e;padding:12px;min-height:170px">
+      <div style="color:#a8d5ae;font-size:11px;margin-bottom:6px">🏢 你的项目：智慧园区平台（进度 45%）</div>
+      <div style="display:flex;gap:6px;margin-bottom:8px">
+        <div style="flex:1;background:#3b5040;border-radius:6px;padding:6px;color:#d7ecd9;font-size:11px">📋 需求<br>✅ 完成</div>
+        <div style="flex:1;background:#3b5040;border-radius:6px;padding:6px;color:#d7ecd9;font-size:11px">⚠️ 风险预警<br>3 个待处理</div>
+        <div style="flex:1;background:#3b5040;border-radius:6px;padding:6px;color:#d7ecd9;font-size:11px">👥 干系人<br>满意度 72</div>
+      </div>
+      <div style="background:#1c291f;border-radius:8px;padding:8px;color:#d7ecd9;font-size:12px">
+        <div style="margin-bottom:4px">💬 事件：客户要求追加人脸识别功能，怎么办？</div>
+        <div style="display:flex;gap:4px;flex-wrap:wrap">
+          <span style="background:#3b5040;border-radius:4px;padding:2px 6px;font-size:11px">A 走变更流程 ✓</span>
+          <span style="background:#3b5040;border-radius:4px;padding:2px 6px;font-size:11px">B 直接拒绝</span>
+          <span style="background:#3b5040;border-radius:4px;padding:2px 6px;font-size:11px">C 免费加上</span>
+        </div>
+        <div style="margin-top:4px;font-size:11px;color:#a8d5ae">答对 +预算+进度，答错项目失控度上升</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B · 项目经营模拟</h3>
+      <p>你就是一个项目经理：接项目、做决策、管风险。考点变成游戏里的真实事件，答错项目会"失控"。最贴近高项实战，案例/论文天然契合。</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="card" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#3a2a4a;padding:12px;min-height:170px">
+      <div style="color:#c9aee8;font-size:11px;margin-bottom:6px">🎴 卡牌图鉴 47/120 · 卡组：风险流</div>
+      <div style="display:flex;gap:6px;margin-bottom:8px">
+        <div style="flex:1;background:#4d3a63;border-radius:6px;padding:6px;color:#e8dbf7;font-size:11px;text-align:center">⚔️<br>风险识别<br><span style="color:#9d7fc4">★SR</span></div>
+        <div style="flex:1;background:#4d3a63;border-radius:6px;padding:6px;color:#e8dbf7;font-size:11px;text-align:center">🛡️<br>EMV计算<br><span style="color:#ffd76e">★SSR</span></div>
+        <div style="flex:1;background:#33263f;border-radius:6px;padding:6px;color:#7a6591;font-size:11px;text-align:center">❓<br>未解锁</div>
+      </div>
+      <div style="background:#241a30;border-radius:8px;padding:8px;color:#e8dbf7;font-size:12px">
+        <div style="margin-bottom:4px">🐉 Boss 战：风险大魔王（第9章）</div>
+        <div style="display:flex;justify-content:space-between;font-size:11px;color:#c9aee8"><span>出牌：识别→评估→应对</span><span>连击 ×3</span></div>
+        <div style="margin-top:6px;background:#4d3a63;border-radius:4px;height:8px"><div style="width:38%;height:100%;background:#c77ef0;border-radius:4px"></div></div>
+        <div style="font-size:11px;color:#a8d5ae;margin-top:4px">按正确顺序出牌才能造成伤害</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C · 卡牌收集对战</h3>
+      <p>考点变卡牌，答题/连对收集稀有卡。组卡组打章节 Boss，收集癖 + 策略感强。轻量化，碎片时间友好。</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="casual" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#2f3a45;padding:12px;min-height:170px">
+      <div style="color:#9fc3d8;font-size:11px;margin-bottom:6px">🎮 今日任务：3 个小游戏 + 复习 12 题</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+        <div style="background:#3d4b59;border-radius:6px;padding:8px;color:#d8e6ee;font-size:11px">📦 ITTO 传送带<br><span style="color:#7fa3b8">限时分拣 · 已玩</span></div>
+        <div style="background:#3d4b59;border-radius:6px;padding:8px;color:#d8e6ee;font-size:11px">🎯 考点打怪<br><span style="color:#7fa3b8">连击 8 · 待挑战</span></div>
+        <div style="background:#3d4b59;border-radius:6px;padding:8px;color:#d8e6ee;font-size:11px">🧩 配对消消<br><span style="color:#7fa3b8">今日新题 12</span></div>
+        <div style="background:#3d4b59;border-radius:6px;padding:8px;color:#d8e6ee;font-size:11px">🚥 流程接龙<br><span style="color:#7fa3b8">变更流程</span></div>
+      </div>
+      <div style="background:#1f2830;border-radius:8px;padding:8px;margin-top:8px;color:#d8e6ee;font-size:12px;display:flex;justify-content:space-between">
+        <span>🔥 连续 5 天</span><span>📊 正确率 78% ↑</span><span>⏱️ 今日 23 分钟</span>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>D · 轻量小游戏合集</h3>
+      <p>打怪/传送带/配对/接龙等快节奏小游戏，每局 3-5 分钟，配连胜打卡和数据看板。开发最快、上手最轻。</p>
+    </div>
+  </div>
+
+</div>
+
+<div class="section" style="margin-top:16px">
+  <p class="subtitle">提示：A/B 风格沉浸感强但开发量大；C/D 轻量快速上线。也可以在"其他"里说明你想要的组合（例如 B+A 融合）。</p>
+</div>
