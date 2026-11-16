@@ -20,13 +20,13 @@ window.GX_META = {
     { id: 1,  part: "it",   name: "信息化与信息系统",  enabled: true  },
     { id: 2,  part: "it",   name: "现代基础设施与新技术", enabled: true  },
     { id: 3,  part: "it",   name: "信息系统安全",       enabled: true  },
-    { id: 4,  part: "it",   name: "软件工程",           enabled: false },
-    { id: 5,  part: "pm",   name: "项目管理概论",       enabled: false },
-    { id: 6,  part: "pm",   name: "项目整体管理",       enabled: false },
-    { id: 7,  part: "pm",   name: "项目范围管理",       enabled: false },
-    { id: 8,  part: "pm",   name: "项目进度管理",       enabled: false },
-    { id: 9,  part: "pm",   name: "项目成本管理",       enabled: false },
-    { id: 10, part: "pm",   name: "项目质量管理",       enabled: false },
+    { id: 4,  part: "it",   name: "软件工程",           enabled: true  },
+    { id: 5,  part: "pm",   name: "项目管理概论",       enabled: true  },
+    { id: 6,  part: "pm",   name: "项目整体管理",       enabled: true  },
+    { id: 7,  part: "pm",   name: "项目范围管理",       enabled: true  },
+    { id: 8,  part: "pm",   name: "项目进度管理",       enabled: true  },
+    { id: 9,  part: "pm",   name: "项目成本管理",       enabled: true  },
+    { id: 10, part: "pm",   name: "项目质量管理",       enabled: true  },
     { id: 11, part: "pm",   name: "项目资源管理",       enabled: false },
     { id: 12, part: "pm",   name: "项目沟通管理",       enabled: false },
     { id: 13, part: "pm",   name: "项目干系人管理",     enabled: false },
@@ -49,11 +49,13 @@ window.GX_META = {
   /* 连胜冻结：每月配额 */
   freezePerMonth: 2,
 
-  /* 每日任务定义（M1 可完成：monster / review） */
+  /* 每日任务（M2：monster + review + itto/match/chain 轮换 2 款，完成 ≥3 项打卡） */
   dailyGames: [
-    { key: "monster", name: "考点歼灭", ms: "M2" },
-    { key: "itto",    name: "ITTO 分拣", locked: "M2" },
-    { key: "match",   name: "术语配对", locked: "M2" },
-    { key: "chain",   name: "流程接龙", locked: "M3" }
+    { key: "monster", name: "考点歼灭" },
+    { key: "review",  name: "错题清扫" },
+    { key: "itto",    name: "ITTO 分拣" },
+    { key: "match",   name: "术语配对" },
+    { key: "chain",   name: "流程接龙" },
+    { key: "boss",    name: "街区 BOSS 战", locked: "M3" }
   ]
 };
