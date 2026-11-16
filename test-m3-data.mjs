@@ -119,6 +119,13 @@ GX.games.boss.state = { ch: 1, qs: [], idx: 10, left: 10, correct: 5, wrong: 5, 
 GX.games.boss.result();
 t("未及格 → 不设 bossCleared", GX.store.data.chapters[1].bossCleared !== true);
 
+/* 提前交卷：即使已答题目全对（正确率 100%）也不算通关 */
+GX.store.data.chapters[3] = { newC: 0, newOk: 0, revC: 0, revOk: 0, mastery: 30 };
+GX.games.boss.state = { ch: 3, qs: [], idx: 5, left: 1400, correct: 5, wrong: 0, quit: true, answered: false, over: false, timerId: null };
+GX.games.boss.result();
+t("提前交卷 → 不算通关", GX.store.data.chapters[3].bossCleared !== true);
+t("提前交卷 → 不解锁下一街区", GX.mapUnlocked(4) === false);
+
 /* ---------- 游戏战绩 ---------- */
 console.log("[records]");
 GX.store.reset();

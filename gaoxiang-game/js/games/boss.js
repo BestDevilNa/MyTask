@@ -184,6 +184,7 @@ GX.games.boss = {
     var s = this.state;
     if (!s || s.over) return;
     if (s.idx === 0) { GX.ui.toast("还没开始答题", "o"); return; }
+    s.quit = true;          /* 提前交卷：本次不算通关 */
     this.result();
   },
 
@@ -207,14 +208,17 @@ GX.games.boss = {
 
     var answered = s.idx;
     var acc = answered ? Math.round(s.correct / answered * 100) : 0;
-    var passed = acc >= this.PASS;
-    var grade = acc >= 90 ? "S" : acc >= 80 ? "A" : acc >= this.PASS ? "B" : "F";
-    var msg = {
-      S: "完美压制！街区彻底肃清",
-      A: "漂亮一战，守卫已被击退",
-      B: "险胜过关，街区已解锁",
-      F: "被守卫挡了回来……去错题本补刀"
-    }[grade];
+    var quit = !!s.quit;                       /* 提前交卷 */
+    var passed = !quit && acc >= this.PASS;    /* 提前交卷一律不算通关 */
+    var grade = quit ? "F" : (acc >= 90 ? "S" : acc >= 80 ? "A" : acc >= this.PASS ? "B" : "F");
+    var msg = quit
+      ? "提前交卷，本次挑战不计通关"
+      : {
+        S: "完美压制！街区彻底肃清",
+        A: "漂亮一战，守卫已被击退",
+        B: "险胜过关，街区已解锁",
+        F: "被守卫挡了回来……去错题本补刀"
+      }[grade];
 
     /* 通关：记录 bossCleared + 掌握度加成（仅首次） */
     var d = GX.store.data;
@@ -273,6 +277,6 @@ GX.games.boss = {
       + '</div></div>'
     );
     GX.ui.nav("");
-    GX.ui.toast(passed ? "BOSS 通关！" : "未达及格线");
+    GX.ui.toast(passed ? "BOSS 通关！" : (quit ? "提前交卷，本次不算通关" : "未达及格线"));
   }
 };
