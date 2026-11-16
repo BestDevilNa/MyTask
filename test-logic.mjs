@@ -6,7 +6,7 @@ global.location = { hash: "" };
 global.localStorage = { _s: {}, getItem(k) { return this._s[k] || null; }, setItem(k, v) { this._s[k] = v; }, };
 
 const require = createRequire(import.meta.url);
-const base = "C:/Users/Administrator/Documents/Trae-CN/temp_20261115_01/gaoxiang-game/js/";
+const base = new URL("./gaoxiang-game/js/", import.meta.url).pathname;
 require(base + "data/meta.js");
 require(base + "data/bank.js");
 require(base + "app.js");
