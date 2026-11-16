@@ -57,7 +57,7 @@ GX.store = {
       daily: { date: "", done: {}, completed: false, required: [] },
       chapters: {},            // {ch:{newC,newOk,revC,revOk,mastery,bossCleared}}
       wrong: [],               // [{qid,count,next,mem,type}]
-      stats: { answered: 0, correct: 0, recovered: 0, games: {} }
+      stats: { answered: 0, correct: 0, recovered: 0, games: {}, case: { attempts: 0, best: 0 } }
     };
   },
 
@@ -70,6 +70,7 @@ GX.store = {
     for (var k in def) if (this.data[k] === undefined) this.data[k] = def[k];
     this.data.stats = Object.assign({}, def.stats, this.data.stats || {});
     this.data.stats.games = this.data.stats.games || {};
+    this.data.stats.case = this.data.stats.case || { attempts: 0, best: 0 };
     this.data.settings = Object.assign({}, def.settings, this.data.settings || {});
     this.data.streak = Object.assign({}, def.streak, this.data.streak || {});
   },
@@ -371,6 +372,68 @@ GX.clearCustomBank = function () {
   return n;
 };
 
+/* ---------------- AI 批改（可选，V2-M1） ---------------- */
+/* 配置独立存储，不写入主存档；未配置时零网络请求，失败返回 null 由调用方降级 */
+GX.AI_KEY = "gaoxiang_ai_config";
+
+GX.ai = {
+  cfg: function () {
+    try {
+      var raw = localStorage.getItem(GX.AI_KEY);
+      var o = raw ? JSON.parse(raw) : null;
+      return (o && o.baseURL && o.model && o.apiKey) ? o : null;
+    } catch (e) { return null; }
+  },
+
+  save: function (c) { try { localStorage.setItem(GX.AI_KEY, JSON.stringify(c)); } catch (e) { } },
+
+  clear: function () { try { localStorage.removeItem(GX.AI_KEY); } catch (e) { } },
+
+  ready: function () { return !!this.cfg(); },
+
+  /* 主观题批改：OpenAI 兼容 /chat/completions，30s 超时 */
+  grade: function (p) {
+    var c = this.cfg();
+    if (!c) return Promise.resolve(null);
+    var url = c.baseURL.replace(/\/+$/, "") + "/chat/completions";
+    var sys = "你是信息系统项目管理师考试的案例分析阅卷人。按采分点给分，满分 100。"
+      + "只输出 JSON：{\"score\":数字,\"hit\":[\"已覆盖要点\"],\"miss\":[\"缺失要点\"],\"advice\":\"简短建议\"}，不要输出其他文字。";
+    var user = "【案例背景】\n" + p.bg + "\n\n【题目】\n" + p.q
+      + "\n\n【采分点】\n" + (p.points || []).join("；")
+      + "\n\n【参考答案】\n" + (p.answer || "")
+      + "\n\n【学员作答】\n" + (p.user || "（未作答）");
+    var ctrl = (typeof AbortController !== "undefined") ? new AbortController() : null;
+    var timer = ctrl ? setTimeout(function () { ctrl.abort(); }, 30000) : null;
+    var opt = {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": "Bearer " + c.apiKey },
+      body: JSON.stringify({
+        model: c.model, temperature: 0.2,
+        messages: [{ role: "system", content: sys }, { role: "user", content: user }]
+      })
+    };
+    if (ctrl) opt.signal = ctrl.signal;
+    return fetch(url, opt).then(function (r) {
+      if (!r.ok) throw 0;
+      return r.json();
+    }).then(function (j) {
+      var txt = (j && j.choices && j.choices[0] && j.choices[0].message)
+        ? j.choices[0].message.content : "";
+      var m = String(txt).match(/\{[\s\S]*\}/);
+      if (!m) throw 0;
+      var o = JSON.parse(m[0]);
+      if (typeof o.score !== "number") throw 0;
+      return {
+        score: Math.max(0, Math.min(100, Math.round(o.score))),
+        hit: o.hit || [], miss: o.miss || [], advice: o.advice || ""
+      };
+    }).catch(function () { return null; }).then(function (v) {
+      if (timer) clearTimeout(timer);
+      return v;
+    });
+  }
+};
+
 /* ---------------- 游戏注册表（M3） ---------------- */
 /* 游戏厅/今日页统一从此渲染入口 */
 GX.gameList = [
@@ -394,7 +457,7 @@ GX.mapUnlocked = function (ch) {
 /* ---------------- 导航点击 ---------------- */
 /* 游戏页不占用 hash，点导航时 hash 可能不变，需显式中断对局并重绘 */
 GX.abortGames = function () {
-  ["monster", "itto", "match", "chain", "boss"].forEach(function (k) {
+  ["monster", "itto", "match", "chain", "boss", "case"].forEach(function (k) {
     var g = GX.games[k];
     if (g && g.abort) g.abort();
   });
@@ -496,6 +559,9 @@ GX.pages = {
     GX.ui.nav("#today");
   },
 
+  /* ---------- 案例分析（训练） ---------- */
+  case: function () { GX.games.case.picker(); },
+
   /* ---------- 游戏厅 ---------- */
   arcade: function () {
     var cards = GX.gameList.map(function (g) {
@@ -513,7 +579,17 @@ GX.pages = {
       '<div class="page"><div class="wrap">'
       + GX.ui.secNav("游戏厅", "Arcade", "02")
       + '<div class="watermark">Arcade</div>'
-      + '<div class="stack">' + cards + '</div></div></div>'
+      + '<div class="stack">' + cards + '</div>'
+      + '<div class="panel" style="margin-top:16px">'
+      + '<div class="row" style="margin-bottom:10px"><span class="block-tag">训练</span>'
+      + '<span class="tagline">主观题 · 采分点自评</span></div>'
+      + '<div style="display:flex;justify-content:space-between;align-items:center;gap:12px">'
+      + '<div><div style="font-size:16px;font-weight:700;line-height:1.3">案例分析</div>'
+      + '<div class="tagline" style="margin-top:4px">Case Study</div>'
+      + '<div class="muted" style="margin-top:5px">找错 · 措施 · 计算 · 可选 AI 批改</div></div>'
+      + '<button class="btn primary" onclick="GX.ui.go(\'#case\')">进入</button></div>'
+      + '</div>'
+      + '</div></div>'
     );
     GX.ui.nav("#arcade");
   },
@@ -648,6 +724,7 @@ GX.pages = {
   /* ---------- 档案 ---------- */
   profile: function () {
     var d = GX.store.data;
+    var ai = GX.ai.cfg();
     var acc = d.stats.answered ? Math.round(d.stats.correct / d.stats.answered * 100) : 0;
     var avg = 0, cnt = 0;
     for (var ch in d.chapters) { if (d.chapters[ch].newC + d.chapters[ch].revC > 0) { avg += d.chapters[ch].mastery; cnt++; } }
@@ -721,7 +798,21 @@ GX.pages = {
       + '<div class="panel" style="margin-bottom:16px">'
       + '<div class="row" style="margin-bottom:14px"><span class="block-tag">Records</span><span class="tagline">游戏战绩</span></div>'
       + '<div class="board-games">' + games + '</div>'
+      + '<div class="row" style="margin-top:12px"><span style="font-size:13px">案例分析</span>'
+      + '<span class="tagline">' + (d.stats.case.attempts || 0) + ' 次 · 最佳 ' + (d.stats.case.best || 0) + '%</span></div>'
       + '</div>'
+
+      + '<div class="panel" style="margin-bottom:16px">'
+      + '<div class="row" style="margin-bottom:14px"><span class="block-tag">AI</span><span class="tagline">案例批改（可选）</span></div>'
+      + '<p class="muted" style="margin-bottom:12px">填写 OpenAI 兼容接口后，案例分析主观题可用 AI 批改。密钥仅存本机，请求会发往你填写的服务；未填写时不发起任何网络请求。</p>'
+      + '<div class="stack" style="gap:10px">'
+      + '<input type="text" id="aiBase" placeholder="Base URL，如 https://api.openai.com/v1" value="' + GX.util.esc(ai ? ai.baseURL : "") + '">'
+      + '<input type="text" id="aiModel" placeholder="模型，如 gpt-4o-mini" value="' + GX.util.esc(ai ? ai.model : "") + '">'
+      + '<input type="password" id="aiKey" placeholder="API Key" value="' + GX.util.esc(ai ? ai.apiKey : "") + '">'
+      + '<div class="row" style="gap:10px;flex-wrap:wrap">'
+      + '<button class="btn primary" onclick="GX.pages.saveAI()">保存 AI 配置</button>'
+      + (ai ? '<button class="btn" onclick="GX.pages.clearAI()">清除配置</button>' : '')
+      + '</div></div></div>'
 
       + '<div class="panel" style="margin-bottom:16px">'
       + '<div class="row" style="margin-bottom:14px"><span class="block-tag">Settings</span><span class="tagline">设置</span></div>'
@@ -754,7 +845,7 @@ GX.pages = {
       + '</div>'
 
       + '<div class="filmstrip" style="margin:22px 0 14px"></div>'
-      + '<p class="muted" style="text-align:center">高项电竞社 M3 · 信息系统项目管理师备考 · 2027 上半年</p>'
+      + '<p class="muted" style="text-align:center">高项电竞社 V2-M1 · 信息系统项目管理师备考 · 2027 上半年</p>'
       + '</div></div>'
     );
     GX.ui.nav("#profile");
@@ -766,6 +857,30 @@ GX.pages = {
     GX.store.save();
     GX.ui.toast("考试日期已更新");
     GX.pages.today === null;
+    GX.router.render();
+  },
+
+  saveAI: function () {
+    var b = document.getElementById("aiBase");
+    var m = document.getElementById("aiModel");
+    var k = document.getElementById("aiKey");
+    var cfg = {
+      baseURL: (b ? b.value : "").trim(),
+      model: (m ? m.value : "").trim(),
+      apiKey: (k ? k.value : "").trim()
+    };
+    if (!cfg.baseURL || !cfg.model || !cfg.apiKey) {
+      GX.ui.toast("Base URL、模型、API Key 都要填写", "o");
+      return;
+    }
+    GX.ai.save(cfg);
+    GX.ui.toast("AI 配置已保存");
+    GX.router.render();
+  },
+
+  clearAI: function () {
+    GX.ai.clear();
+    GX.ui.toast("AI 配置已清除");
     GX.router.render();
   },
 
@@ -842,7 +957,7 @@ GX.pages = {
 
 /* ---------------- 路由 ---------------- */
 GX.router = {
-  routes: { "#today": "today", "#arcade": "arcade", "#map": "map", "#wrong": "wrong", "#profile": "profile" },
+  routes: { "#today": "today", "#arcade": "arcade", "#case": "case", "#map": "map", "#wrong": "wrong", "#profile": "profile" },
   render: function () {
     var h = location.hash || "#today";
     var page = this.routes[h];

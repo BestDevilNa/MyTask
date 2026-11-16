@@ -622,3 +622,36 @@ input[type="date"]:focus, input[type="text"]:focus { outline: none; border-color
   min-width: 22px; text-align: center;
 }
 .board-game .bg-best.on { color: var(--zzz-yellow); -webkit-text-stroke: .5px var(--zzz-ink); }
+
+/* ---------- 案例分析（V2-M1） ---------- */
+.case-bg { font-size: 13.5px; line-height: 1.8; color: var(--zzz-grey); white-space: pre-wrap; }
+.case-input, .case-calc-row input, #aiBase, #aiModel, #aiKey {
+  width: 100%;
+  border: 1.5px solid rgba(0,0,0,.14); border-radius: var(--r-btn);
+  background: #fff; padding: 10px 12px;
+  font-family: inherit; font-size: 13.5px; line-height: 1.7; color: var(--zzz-ink);
+  outline: none;
+}
+.case-input:focus, .case-calc-row input:focus, #aiBase:focus, #aiModel:focus, #aiKey:focus {
+  border-color: var(--zzz-ink);
+}
+.case-input { resize: vertical; min-height: 130px; }
+.case-calc-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.case-calc-row input { max-width: 220px; }
+.case-points { display: flex; flex-direction: column; gap: 9px; }
+.case-point { display: flex; align-items: flex-start; gap: 10px; font-size: 13px; line-height: 1.6; }
+.case-point input { margin-top: 3px; accent-color: var(--zzz-ink); }
+.case-mark {
+  width: 18px; flex: 0 0 18px; text-align: center;
+  font-family: var(--font-num); color: var(--zzz-grey);
+}
+.case-mark.on { color: var(--zzz-ink); font-weight: 700; }
+.case-answer { font-size: 13.5px; line-height: 1.8; color: var(--zzz-grey); white-space: pre-wrap; }
+.case-step {
+  font-size: 12.5px; line-height: 1.8; color: var(--zzz-grey);
+  border-left: 2px solid rgba(0,0,0,.12); padding-left: 10px;
+}
+.ai-box {
+  border: 1.5px solid rgba(216,250,0,.55); background: rgba(216,250,0,.1);
+  border-radius: var(--r-btn); padding: 12px 14px; font-size: 13px;
+}
