@@ -254,6 +254,7 @@ GX.games.monster = {
     /* 每日任务打卡 */
     if (s.mode === "review") GX.daily.done("review");
     else GX.daily.done("monster");
+    GX.stats.recordGame("monster", grade);
     GX.store.save();
     GX.ui.syncTop();
 

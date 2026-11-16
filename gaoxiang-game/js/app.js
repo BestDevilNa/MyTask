@@ -42,9 +42,9 @@ GX.store = {
       settings: { examDate: "2027-05-22" },
       streak: { count: 0, last: "", freezes: 2, freezeMonth: GX.util.today().slice(0, 7) },
       daily: { date: "", done: {}, completed: false, required: [] },
-      chapters: {},            // {ch:{newC,newOk,revC,revOk,mastery}}
-      wrong: [],               // [{qid,count,next,mem}]
-      stats: { answered: 0, correct: 0, recovered: 0 }
+      chapters: {},            // {ch:{newC,newOk,revC,revOk,mastery,bossCleared}}
+      wrong: [],               // [{qid,count,next,mem,type}]
+      stats: { answered: 0, correct: 0, recovered: 0, games: {} }
     };
   },
 
@@ -56,6 +56,7 @@ GX.store = {
     var def = this.defaults();
     for (var k in def) if (this.data[k] === undefined) this.data[k] = def[k];
     this.data.stats = Object.assign({}, def.stats, this.data.stats || {});
+    this.data.stats.games = this.data.stats.games || {};
     this.data.settings = Object.assign({}, def.settings, this.data.settings || {});
     this.data.streak = Object.assign({}, def.streak, this.data.streak || {});
   },
@@ -136,8 +137,9 @@ GX.stats = {
     GX.store.save();
   },
 
-  /* 小游戏（itto/match/chain）判定：计全局与章节掌握度，不进错题本 */
-  recordRaw: function (ch, right) {
+  /* 小游戏（itto/match/chain）判定：计全局与章节掌握度，不进错题本
+     qid 存在时按题型入错题本（供分题型清扫） */
+  recordRaw: function (ch, right, qid, type) {
     var d = GX.store.data;
     d.stats.answered++;
     if (right) d.stats.correct++;
@@ -148,24 +150,62 @@ GX.stats = {
 
     var m = (c.revC === 0) ? c.newOk / c.newC : 0.7 * (c.newOk / c.newC) + 0.3 * (c.revOk / c.revC);
     c.mastery = Math.round(m * 100);
+
+    /* 错项入库：单选走既有 SRS；ITTO/流程错项也进错题本（带 type 标记） */
+    if (qid) {
+      if (right) GX.srs.onCorrect(qid);
+      else {
+        var w = null;
+        for (var i = 0; i < d.wrong.length; i++) if (d.wrong[i].qid === qid) { w = d.wrong[i]; break; }
+        if (!w) {
+          w = { qid: qid, count: 1, next: GX.util.addDays(GX.util.today(), 1), mem: 40, type: type || "single" };
+          d.wrong.push(w);
+        } else {
+          w.count++;
+          w.next = GX.util.addDays(GX.util.today(), 1);
+          w.mem = Math.max(20, w.mem - 15);
+        }
+      }
+    }
     GX.store.save();
+  },
+
+  /* 游戏战绩：{key:{plays,best}}，best 取最高评级 */
+  recordGame: function (key, grade) {
+    var g = GX.store.data.stats.games;
+    var cur = g[key] || (g[key] = { plays: 0, best: "" });
+    cur.plays++;
+    var rank = { "S": 4, "A": 3, "B": 2, "F": 1 };
+    if (!cur.best || (rank[grade] || 0) > (rank[cur.best] || 0)) cur.best = grade;
   }
 };
 
 /* ---------------- 每日任务 & 连胜 ---------------- */
 GX.daily = {
   /* 新的一天（或旧版任务单升级）：计算当日必做项
-     M2 规则：monster 必含 + itto/match/chain 按日轮换 2 款 + 到期错题清扫 */
+     M3 规则：monster 必含 + itto/match/chain 按日轮换 2 款 + 到期错题清扫 + BOSS 挑战 */
   ensure: function () {
     var d = GX.store.data, t = GX.util.today();
-    if (d.daily.date === t && d.daily.v === 2) return;
+    if (d.daily.date === t && d.daily.v === 3) return;
     var rot = [["itto", "match"], ["match", "chain"], ["chain", "itto"]];
     var dn = Math.floor(new Date(t + "T00:00:00").getTime() / 86400000);
     var required = ["monster"].concat(rot[dn % 3]);
     if (GX.srs.dueList().length > 0) required.push("review");
+    /* BOSS 挑战：取已解锁且未通关的最小章节 */
+    var bossCh = 0;
+    for (var i = 0; i < GX_META.chapters.length; i++) {
+      var c = GX_META.chapters[i];
+      if (!c.enabled || !GX_BANK.byChapter(c.id).length) continue;
+      if (!GX.mapUnlocked(c.id)) continue;
+      var st = d.chapters[c.id];
+      if (st && st.bossCleared) continue;
+      bossCh = c.id;
+      break;
+    }
+    if (bossCh) required.push("boss");
     var keepDone = (d.daily.date === t) ? (d.daily.done || {}) : {};
     var wasDone = (d.daily.date === t) ? d.daily.completed : false;
-    d.daily = { v: 2, date: t, done: keepDone, completed: wasDone, required: required };
+    d.daily = { v: 3, date: t, done: keepDone, completed: wasDone, required: required };
     GX.store.save();
   },
 
@@ -233,27 +273,115 @@ GX.ui = {
   }
 };
 
-/* ---------------- 游戏注册表（M2） ---------------- */
-/* 游戏厅/今日页统一从此渲染入口；boss 留待 M3 */
+/* ---------------- 自定义题库（M3） ---------------- */
+/* 导入题目存 localStorage 独立键，启动时合并入 GX_BANK；内置题库文件不被修改 */
+GX.CUSTOM_BANK_KEY = "gaoxiang_bank_custom";
+
+GX.loadCustomBank = function () {
+  var raw = null;
+  try { raw = localStorage.getItem(this.CUSTOM_BANK_KEY); } catch (e) { }
+  if (!raw) return [];
+  try {
+    var arr = JSON.parse(raw);
+    return Array.isArray(arr) ? arr : [];
+  } catch (e) { return []; }
+};
+
+GX.saveCustomBank = function (arr) {
+  try { localStorage.setItem(this.CUSTOM_BANK_KEY, JSON.stringify(arr)); }
+  catch (e) { GX.ui.toast("题库保存失败：浏览器存储不可用", "o"); }
+};
+
+GX.customBankCount = function () {
+  return this.loadCustomBank().length;
+};
+
+/* 校验并合并导入题目；id 冲突或非法项跳过 */
+GX.importCustomBank = function (arr) {
+  var existing = this.loadCustomBank();
+  var added = 0, skipped = 0;
+  var seen = {};
+  existing.forEach(function (q) { seen[q.id] = true; });
+  var builtinIds = {};
+  for (var ch in GX_BANK.chapters) {
+    GX_BANK.chapters[ch].forEach(function (q) { builtinIds[q.id] = true; });
+  }
+
+  arr.forEach(function (q, i) {
+    if (!q || typeof q !== "object") { skipped++; return; }
+    if (typeof q.ch !== "number" || q.ch < 1 || q.ch > 24) { skipped++; return; }
+    if (!q.q || !Array.isArray(q.opts) || q.opts.length !== 4) { skipped++; return; }
+    if (typeof q.ans !== "number" || q.ans < 0 || q.ans > 3) { skipped++; return; }
+    if (!q.exp) { skipped++; return; }
+
+    var id = q.id || ("u" + q.ch + "q" + (i + 1) + "_" + Math.random().toString(36).slice(2, 6));
+    if (seen[id] || builtinIds[id]) { skipped++; return; }
+    seen[id] = true;
+
+    var item = {
+      id: id, ch: q.ch, type: "single",
+      diff: q.diff || 2,
+      tags: Array.isArray(q.tags) ? q.tags : ["导入"],
+      q: String(q.q), opts: q.opts.map(String), ans: q.ans, exp: String(q.exp)
+    };
+    existing.push(item);
+    added++;
+  });
+
+  this.saveCustomBank(existing);
+  this.mergeCustomBank();
+  return { added: added, skipped: skipped };
+};
+
+/* 把自定义题合并进当前会话的 GX_BANK（先快照内置题，再按快照重建，避免误删内置题） */
+GX.mergeCustomBank = function () {
+  if (!this._builtinChapters) {
+    this._builtinChapters = {};
+    for (var ch in GX_BANK.chapters) this._builtinChapters[ch] = GX_BANK.chapters[ch].slice();
+  }
+  /* 还原为纯内置题库 */
+  for (var c2 in GX_BANK.chapters) delete GX_BANK.chapters[c2];
+  for (var c3 in this._builtinChapters) GX_BANK.chapters[c3] = this._builtinChapters[c3].slice();
+
+  var custom = this.loadCustomBank();
+  custom.forEach(function (q) {
+    if (!GX_BANK.chapters[q.ch]) GX_BANK.chapters[q.ch] = [];
+    GX_BANK.chapters[q.ch].push(q);
+  });
+  return custom.length;
+};
+
+GX.clearCustomBank = function () {
+  var n = this.loadCustomBank().length;
+  try { localStorage.removeItem(this.CUSTOM_BANK_KEY); } catch (e) { }
+  this.mergeCustomBank();
+  return n;
+};
+
+/* ---------------- 游戏注册表（M3） ---------------- */
+/* 游戏厅/今日页统一从此渲染入口 */
 GX.gameList = [
   { key: "monster", name: "考点歼灭",     en: "Concept Hunter", desc: "全题型 · 连击 COMBO",   entry: "GX.games.monster.picker()" },
   { key: "itto",    name: "ITTO 分拣",    en: "ITTO Sorter",    desc: "限时 60s · 三栏分拣",   entry: "GX.games.itto.picker()" },
   { key: "match",   name: "术语配对",     en: "Term Match",     desc: "翻牌 · 记忆强化",       entry: "GX.games.match.picker()" },
   { key: "chain",   name: "流程接龙",     en: "Process Chain",  desc: "排序 · 变更/风险流程",  entry: "GX.games.chain.start()" },
-  { key: "boss",    name: "街区 BOSS 战", en: "Block Boss",     desc: "30 题限时 · 通关解锁",  locked: "M3" }
+  { key: "boss",    name: "街区 BOSS 战", en: "Block Boss",     desc: "30 题限时 · 通关解锁",  entry: "GX.games.boss.picker()" }
 ];
 
-/* 街区解锁：CH.1-3 老街区全开；之后前一街区掌握度 ≥60% 解锁下一街区 */
+/* 街区解锁（M3 双通道）：
+   ① 前一街区 BOSS 已通关 → 直接解锁
+   ② 前一街区掌握度 ≥60% → 解锁（兼容 M2 进度，作为补充路径） */
 GX.mapUnlocked = function (ch) {
   if (ch <= 3) return true;
   var prev = GX.store.data.chapters[ch - 1];
-  return !!(prev && prev.mastery >= 60);
+  if (!prev) return false;
+  return !!(prev.bossCleared || prev.mastery >= 60);
 };
 
 /* ---------------- 导航点击 ---------------- */
 /* 游戏页不占用 hash，点导航时 hash 可能不变，需显式中断对局并重绘 */
 GX.abortGames = function () {
-  ["monster", "itto", "match", "chain"].forEach(function (k) {
+  ["monster", "itto", "match", "chain", "boss"].forEach(function (k) {
     var g = GX.games[k];
     if (g && g.abort) g.abort();
   });
@@ -283,10 +411,11 @@ GX.pages = {
       review:  'onclick="GX.games.monster.run({mode:\'review\'})"',
       itto:    'onclick="GX.games.itto.picker()"',
       match:   'onclick="GX.games.match.picker()"',
-      chain:   'onclick="GX.games.chain.start()"'
+      chain:   'onclick="GX.games.chain.start()"',
+      boss:    'onclick="GX.games.boss.picker()"'
     };
     var taskRow = function (key, done) {
-      var names = { monster: "考点歼灭", itto: "ITTO 分拣", match: "术语配对", chain: "流程接龙" };
+      var names = { monster: "考点歼灭", itto: "ITTO 分拣", match: "术语配对", chain: "流程接龙", boss: "BOSS 挑战" };
       var name = key === "review" ? "错题清扫 ×" + due : names[key];
       return '<div class="' + (done ? "chip on" : "chip") + '" ' + (acts[key] || "") + '>'
         + name + (done ? '<span class="chip-state">✓ 已完成</span>' : '<span class="chip-state">待挑战</span>') + '</div>';
@@ -382,7 +511,7 @@ GX.pages = {
     var html = '<div class="page"><div class="wrap">'
       + GX.ui.secNav("街区地图", "Block Map", "03")
       + '<div class="watermark">Map</div>'
-      + '<p class="muted" style="margin-bottom:16px">街区按掌握度推进：前一街区掌握度 ≥60% 解锁下一街区（M3 起改为 Boss 战通关解锁）。</p><div class="stack">';
+      + '<p class="muted" style="margin-bottom:16px">通关前一街区 BOSS 战即可解锁下一街区（前章掌握度 ≥60% 亦可提前解锁）。</p><div class="stack">';
 
     GX_META.parts.forEach(function (p, pi) {
       var chs = GX_META.chapters.filter(function (c) { return c.part === p.id; });
@@ -394,16 +523,20 @@ GX.pages = {
       chs.forEach(function (c) {
         var st = d.chapters[c.id];
         var m = st ? st.mastery : 0;
+        var cleared = st && st.bossCleared;
         var hasQ = c.enabled && GX_BANK.byChapter(c.id).length > 0;
-        var playable = hasQ && GX.mapUnlocked(c.id);
+        var unlocked = hasQ && GX.mapUnlocked(c.id);
         html += '<div style="margin-bottom:14px">'
           + '<div class="row" style="font-size:13.5px;margin-bottom:6px">'
-          + '<span style="' + (playable ? "" : "opacity:.45") + '">CH.' + c.id + ' ' + c.name + '</span>'
-          + (playable
-              ? '<button class="btn sm" onclick="GX.games.monster.run({chapter:' + c.id + '})">挑战</button>'
-              : '<span class="lock-mask">' + (hasQ ? "CH." + (c.id - 1) + " ≥60% 解锁" : "题库建设中") + '</span>')
+          + '<span style="' + (unlocked ? "" : "opacity:.45") + '">CH.' + c.id + ' ' + c.name
+          + (cleared ? ' <span class="tag solid">CLEARED</span>' : '') + '</span>'
+          + (unlocked
+              ? '<span style="display:flex;gap:6px;flex:none">'
+                + '<button class="btn sm" onclick="GX.games.monster.run({chapter:' + c.id + '})">挑战</button>'
+                + '<button class="btn sm" onclick="GX.games.boss.run(' + c.id + ')">BOSS</button></span>'
+              : '<span class="lock-mask">' + (hasQ ? "CH." + (c.id - 1) + " 未通关" : "题库建设中") + '</span>')
           + '</div>'
-          + (playable || m > 0 ? '<div class="hp"><i style="width:' + m + '%"></i></div>' : "")
+          + (unlocked || m > 0 ? '<div class="hp"><i style="width:' + m + '%"></i></div>' : "")
           + '</div>';
       });
 
@@ -420,18 +553,61 @@ GX.pages = {
     var d = GX.store.data;
     var due = GX.srs.dueList();
 
-    var list = d.wrong.slice().sort(function (a, b) { return a.next < b.next ? -1 : 1; });
-    var rows = list.map(function (w) {
-      var q = GX_BANK.get(w.qid);
-      if (!q) return "";
-      var dueNow = w.next <= GX.util.today();
-      return '<div class="panel">'
-        + '<div class="row" style="font-size:13px;margin-bottom:6px;align-items:flex-start">'
-        + '<span style="font-weight:700;flex:1">' + GX.util.esc(q.q).slice(0, 38) + (q.q.length > 38 ? "…" : "") + '</span>'
-        + '<span class="tag ' + (dueNow ? "ember" : "grey") + '">'
-        + (dueNow ? "DUE 今日" : w.next.slice(5)) + '</span></div>'
-        + '<div class="tagline">CH.' + q.ch + ' ' + (GX_META.chapters[q.ch - 1] ? GX_META.chapters[q.ch - 1].name : "") + ' · 错 ' + w.count + ' 次 · 记忆度 ' + w.mem + '%</div>'
-        + '<div class="hp" style="margin-top:8px"><i style="width:' + w.mem + '%"></i></div>'
+    /* 按题型分组：single 单选 / itto 卡片 / chain 流程 */
+    var groups = { single: [], itto: [], chain: [] };
+    d.wrong.slice().sort(function (a, b) { return a.next < b.next ? -1 : 1; }).forEach(function (w) {
+      var t = w.type || "single";
+      if (!groups[t]) groups[t] = w.qid.indexOf("fl") === 0 ? "chain" : (w.qid.indexOf("itto") === 0 ? "itto" : "single");
+      groups[groups[t]].push(w);
+    });
+
+    var groupName = { single: "单选错题", itto: "ITTO 卡片", chain: "流程错题" };
+    var groupTag = { single: "ember", itto: "grey", chain: "grey" };
+
+    var sections = ["single", "itto", "chain"].map(function (t) {
+      var arr = groups[t];
+      if (!arr.length) return "";
+      var dueN = arr.filter(function (w) { return w.next <= GX.util.today(); }).length;
+      var rows = arr.map(function (w) {
+        var q = GX_BANK.get(w.qid);
+        var title, sub;
+        if (t === "single" && q) {
+          title = GX.util.esc(q.q).slice(0, 38) + (q.q.length > 38 ? "…" : "");
+          sub = "CH." + q.ch + " " + (GX_META.chapters[q.ch - 1] ? GX_META.chapters[q.ch - 1].name : "") + " · 错 " + w.count + " 次 · 记忆度 " + w.mem + "%";
+        } else if (t === "itto") {
+          var card = GX_ITTO.cardById(w.qid);
+          title = card ? GX.util.esc(card.card) : w.qid;
+          sub = "所属过程 · " + (card ? GX.util.esc(card.process) : "?") + " · 错 " + w.count + " 次 · 记忆度 " + w.mem + "%";
+        } else {
+          var flow = GX_CHAIN.flowById(w.qid);
+          title = flow ? GX.util.esc(flow.name) : w.qid;
+          sub = "CH." + (flow ? flow.ch : "?") + " · 错 " + w.count + " 次 · 记忆度 " + w.mem + "%";
+        }
+        var dueNow = w.next <= GX.util.today();
+        return '<div class="panel">'
+          + '<div class="row" style="font-size:13px;margin-bottom:6px;align-items:flex-start">'
+          + '<span style="font-weight:700;flex:1">' + title + '</span>'
+          + '<span class="tag ' + (dueNow ? "ember" : "grey") + '">'
+          + (dueNow ? "DUE 今日" : w.next.slice(5)) + '</span></div>'
+          + '<div class="tagline">' + sub + '</div>'
+          + '<div class="hp" style="margin-top:8px"><i style="width:' + w.mem + '%"></i></div>'
+          + '</div>';
+      }).join("");
+
+      var btn = "";
+      if (dueN > 0) {
+        if (t === "single") btn = '<button class="btn ember" onclick="GX.games.monster.run({mode:\'review\'})">清扫 ' + dueN + ' 题</button>';
+        else if (t === "itto") btn = '<button class="btn ember" onclick="GX.games.itto.runReview()">重分拣 ' + dueN + ' 卡</button>';
+        else btn = '<button class="btn ember" onclick="GX.games.chain.runReview()">重接 ' + dueN + ' 条</button>';
+      } else btn = '<span class="tag grey">暂无到期</span>';
+
+      return '<div class="panel" style="margin-bottom:16px">'
+        + '<div class="row" style="margin-bottom:12px">'
+        + '<span class="block-tag">' + groupName[t] + '</span>'
+        + '<span class="tag ' + groupTag[t] + '">' + arr.length + ' 题</span></div>'
+        + '<div class="row" style="margin-bottom:12px">'
+        + '<span class="tagline">在库 ' + arr.length + ' · 到期 ' + dueN + '</span>' + btn + '</div>'
+        + '<div class="stack">' + rows + '</div>'
         + '</div>';
     }).join("");
 
@@ -448,9 +624,8 @@ GX.pages = {
                     : '<span class="tag grey">暂无到期</span>')
       + '</div></div>'
 
-      + '<div class="stack">'
-      + (list.length ? rows : '<p class="muted">错题本是空的，先去打怪攒点库存</p>')
-      + '</div></div></div>'
+      + (sections || '<p class="muted">错题本是空的，先去打怪攒点库存</p>')
+      + '</div></div>'
     );
     GX.ui.nav("#wrong");
   },
@@ -469,6 +644,44 @@ GX.pages = {
         + (yellow ? "var(--zzz-yellow)" : "var(--zzz-ink)") + '">' + val + '</div></div>';
     };
 
+    /* ---- 章节全景看板：按分部显示 24 章掌握度 + BOSS 角标 ---- */
+    var board = GX_META.parts.map(function (p, pi) {
+      var chs = GX_META.chapters.filter(function (c) { return c.part === p.id; });
+      var cells = chs.map(function (c) {
+        var st = d.chapters[c.id];
+        var m = st ? st.mastery : 0;
+        var cleared = st && st.bossCleared;
+        var unlocked = GX.mapUnlocked(c.id);
+        var bg = m >= 80 ? "var(--zzz-yellow)" : m >= 40 ? "rgba(216,250,0,.45)" : m > 0 ? "rgba(216,250,0,.2)" : "rgba(0,0,0,.06)";
+        var fg = m >= 40 ? "var(--zzz-ink)" : "var(--zzz-grey)";
+        return '<div class="board-cell" style="background:' + bg + ';color:' + fg + '" title="CH.' + c.id + ' ' + c.name + ' · 掌握度 ' + m + '%">'
+          + '<span class="bc-no">' + c.id + '</span>'
+          + '<span class="bc-pct">' + m + '%</span>'
+          + (cleared ? '<span class="bc-flag">✓</span>' : (unlocked ? '' : '<span class="bc-lock">锁</span>'))
+          + '</div>';
+      }).join("");
+      return '<div style="margin-bottom:14px">'
+        + '<div class="row" style="margin-bottom:8px"><span class="block-tag">' + p.name + '</span>'
+        + '<span class="tagline">Part ' + String(pi + 1).padStart(2, "0") + '</span></div>'
+        + '<div class="board-grid">' + cells + '</div></div>';
+    }).join("");
+
+    /* ---- 游戏战绩 ---- */
+    var gameNames = { monster: "考点歼灭", itto: "ITTO 分拣", match: "术语配对", chain: "流程接龙", boss: "BOSS 战" };
+    var games = GX.gameList.map(function (g) {
+      var rec = d.stats.games[g.key];
+      var plays = rec ? rec.plays : 0;
+      var best = rec && rec.best ? rec.best : "—";
+      return '<div class="board-game">'
+        + '<span class="bg-name">' + g.name + '</span>'
+        + '<span class="bg-plays">' + plays + ' 局</span>'
+        + '<span class="bg-best ' + (best !== "—" ? "on" : "") + '">' + best + '</span>'
+        + '</div>';
+    }).join("");
+
+    /* ---- 自定义题库 ---- */
+    var customCount = GX.customBankCount();
+
     GX.ui.view(
       '<div class="page"><div class="wrap">'
       + GX.ui.secNav("我的档案", "Profile", "05")
@@ -483,12 +696,35 @@ GX.pages = {
       + '</div></div>'
 
       + '<div class="panel" style="margin-bottom:16px">'
+      + '<div class="row" style="margin-bottom:14px"><span class="block-tag">Board</span><span class="tagline">章节全景</span></div>'
+      + board
+      + '<div class="row" style="margin-top:6px;gap:12px;flex-wrap:wrap">'
+      + '<span class="tagline">已通关 BOSS ' + Object.keys(d.chapters).filter(function (k) { return d.chapters[k].bossCleared; }).length + ' / 24</span>'
+      + '</div>'
+      + '</div>'
+
+      + '<div class="panel" style="margin-bottom:16px">'
+      + '<div class="row" style="margin-bottom:14px"><span class="block-tag">Records</span><span class="tagline">游戏战绩</span></div>'
+      + '<div class="board-games">' + games + '</div>'
+      + '</div>'
+
+      + '<div class="panel" style="margin-bottom:16px">'
       + '<div class="row" style="margin-bottom:14px"><span class="block-tag">Settings</span><span class="tagline">设置</span></div>'
       + '<div class="row"><span style="font-size:13.5px">考试日期</span>'
       + '<input type="date" value="' + d.settings.examDate + '" onchange="GX.pages.setExam(this.value)"></div>'
       + '<div class="divider"></div>'
       + '<div class="row"><span style="font-size:13.5px">连胜冻结余额</span>'
       + '<span style="font-family:var(--font-num);font-size:17px">' + d.streak.freezes + ' / ' + GX_META.freezePerMonth + '</span></div>'
+      + '</div>'
+
+      + '<div class="panel" style="margin-bottom:16px">'
+      + '<div class="row" style="margin-bottom:14px"><span class="block-tag">Bank</span><span class="tagline">自定义题库</span></div>'
+      + '<p class="muted" style="margin-bottom:12px">导入 JSON 格式的题目数组（字段：ch / q / opts[4] / ans / exp），导入后与内置题库合并使用。当前已导入 ' + customCount + ' 题。</p>'
+      + '<div class="row" style="gap:10px;flex-wrap:wrap">'
+      + '<button class="btn primary" onclick="document.getElementById(\'bankFile\').click()">导入题库</button>'
+      + (customCount ? '<button class="btn" onclick="GX.pages.clearBank()">清除导入</button>' : '')
+      + '</div>'
+      + '<input type="file" id="bankFile" accept=".json" style="display:none" onchange="GX.pages.importBank(this)">'
       + '</div>'
 
       + '<div class="panel">'
@@ -503,7 +739,7 @@ GX.pages = {
       + '</div>'
 
       + '<div class="filmstrip" style="margin:22px 0 14px"></div>'
-      + '<p class="muted" style="text-align:center">高项电竞社 M2 · 信息系统项目管理师备考 · 2027 上半年</p>'
+      + '<p class="muted" style="text-align:center">高项电竞社 M3 · 信息系统项目管理师备考 · 2027 上半年</p>'
       + '</div></div>'
     );
     GX.ui.nav("#profile");
@@ -551,6 +787,41 @@ GX.pages = {
     GX.store.reset();
     GX.ui.toast("已重置", "o");
     GX.router.render();
+  },
+
+  /* ---------- 题库导入 ---------- */
+  importBank: function (input) {
+    var f = input.files[0];
+    if (!f) return;
+    var r = new FileReader();
+    r.onload = function () {
+      var arr = null;
+      try {
+        var obj = JSON.parse(r.result);
+        arr = Array.isArray(obj) ? obj : (obj && Array.isArray(obj.questions) ? obj.questions : null);
+        if (!arr) throw 0;
+      } catch (e) {
+        GX.ui.toast("文件格式不正确：需为题目数组 JSON", "o");
+        input.value = "";
+        return;
+      }
+      var res = GX.importCustomBank(arr);
+      if (res.added > 0) {
+        GX.ui.toast("已导入 " + res.added + " 题（跳过 " + res.skipped + " 题）");
+        GX.router.render();
+      } else {
+        GX.ui.toast("没有可导入的题目（跳过 " + res.skipped + " 题）", "o");
+      }
+      input.value = "";
+    };
+    r.readAsText(f);
+  },
+
+  clearBank: function () {
+    if (!confirm("确定清除已导入的自定义题库？内置题库不受影响。")) return;
+    var n = GX.clearCustomBank();
+    GX.ui.toast("已清除 " + n + " 道导入题目");
+    GX.router.render();
   }
 };
 
@@ -576,6 +847,7 @@ GX.router = {
 /* ---------------- 启动 ---------------- */
 GX.init = function () {
   GX.store.load();
+  GX.mergeCustomBank();     /* 合并用户导入的自定义题库 */
   GX.daily.ensure();
   window.addEventListener("hashchange", function () { GX.router.render(); });
   if (!location.hash) location.hash = "#today";

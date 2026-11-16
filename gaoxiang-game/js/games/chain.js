@@ -12,12 +12,31 @@ GX.games.chain = {
 
   /* ---------- 开始一局（随机流程） ---------- */
   start: function () {
-    var flow = GX_CHAIN.pick();
+    this.play(GX_CHAIN.pick(), "normal");
+  },
+
+  /* ---------- 错题清扫：重接到期流程错项 ---------- */
+  runReview: function () {
+    var today = GX.util.today();
+    var due = GX.store.data.wrong.filter(function (w) {
+      return (w.type || "single") === "chain" && w.next <= today;
+    });
+    var flows = [];
+    due.forEach(function (w) {
+      var f = GX_CHAIN.flowById(w.qid);
+      if (f) flows.push(f);
+    });
+    if (!flows.length) { GX.ui.toast("没有到期的流程错题", "o"); return; }
+    this.play(flows[0], "review");
+  },
+
+  /* ---------- 通用开局 ---------- */
+  play: function (flow, mode) {
     var pool = flow.steps.map(function (txt, i) { return { txt: txt, orig: i, done: false }; });
     GX.util.shuffle(pool);
 
     this.state = {
-      flow: flow, pool: pool,
+      flow: flow, pool: pool, mode: mode || "normal",
       next: 0, wrong: 0, t: 0,
       timerId: null, over: false
     };
@@ -127,8 +146,10 @@ GX.games.chain = {
     s.over = true;
     clearInterval(s.timerId);
 
-    /* 零失误记为掌握度正确，否则记一次失误 */
-    GX.stats.recordRaw(s.flow.ch, s.wrong === 0);
+    /* 零失误记为掌握度正确，否则记一次失误；流程错项入错题本 */
+    GX.stats.recordRaw(s.flow.ch, s.wrong === 0, s.wrong === 0 ? null : s.flow.id, "chain");
+    /* 清扫模式：一次接对即推进记忆度周期 */
+    if (s.mode === "review" && s.wrong === 0) GX.srs.onCorrect(s.flow.id);
 
     var grade = s.wrong === 0 ? "S" : s.wrong <= 2 ? "A" : s.wrong <= 5 ? "B" : "F";
     var msg = {
@@ -138,7 +159,8 @@ GX.games.chain = {
       F: "接得七零八落……先回考点歼灭学流程"
     }[grade];
 
-    GX.daily.done("chain");
+    GX.daily.done(s.mode === "review" ? "review" : "chain");
+    GX.stats.recordGame("chain", grade);
     GX.store.save();
     GX.ui.syncTop();
 

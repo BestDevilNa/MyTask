@@ -584,3 +584,41 @@ input[type="date"]:focus, input[type="text"]:focus { outline: none; border-color
 
 /* 统计条（分拣/配对/接龙结算页共用小格） */
 .score-strip { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; text-align: center; position: relative; z-index: 1; }
+
+/* ============================================================
+ * M3 · 档案看板（章节全景 + 游戏战绩）
+ * ============================================================ */
+.board-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }
+@media (max-width: 480px) { .board-grid { grid-template-columns: repeat(4, 1fr); } }
+.board-cell {
+  position: relative;
+  aspect-ratio: 1/1;
+  border-radius: var(--r-btn);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 2px; overflow: hidden;
+}
+.board-cell .bc-no { font-family: var(--font-num); font-size: 19px; line-height: 1; }
+.board-cell .bc-pct { font-family: var(--font-num); font-size: 10px; letter-spacing: .04em; opacity: .85; }
+.board-cell .bc-flag {
+  position: absolute; top: 3px; right: 5px;
+  font-size: 10px; font-weight: 700; color: var(--zzz-ink);
+}
+.board-cell .bc-lock {
+  position: absolute; top: 3px; right: 5px;
+  font-size: 9px; color: var(--zzz-grey);
+}
+
+.board-games { display: grid; grid-template-columns: 1fr; gap: 8px; }
+@media (min-width: 768px) { .board-games { grid-template-columns: repeat(2, 1fr); } }
+.board-game {
+  display: flex; align-items: center; gap: 10px;
+  border: 1.5px solid rgba(0,0,0,.1); border-radius: var(--r-btn);
+  padding: 10px 13px;
+}
+.board-game .bg-name { font-size: 13.5px; font-weight: 700; flex: 1; }
+.board-game .bg-plays { font-family: var(--font-num); font-size: 12px; color: var(--zzz-grey); }
+.board-game .bg-best {
+  font-family: var(--font-num); font-size: 16px; color: var(--zzz-grey);
+  min-width: 22px; text-align: center;
+}
+.board-game .bg-best.on { color: var(--zzz-yellow); -webkit-text-stroke: .5px var(--zzz-ink); }

@@ -94,7 +94,7 @@ GX.store.load();
 GX.store.data.daily = { date: "", done: {}, completed: false, required: [] };
 GX.daily.ensure();
 const req = GX.store.data.daily.required;
-t("任务单升级 v2", GX.store.data.daily.v === 2);
+t("任务单版本 v3（M3 规则）", GX.store.data.daily.v === 3);
 t("monster 必含", req.includes("monster"));
 t("轮换 2 款小游戏", ["itto", "match", "chain"].filter(k => req.includes(k)).length === 2);
 t("review 按需出现（当前到期 " + GX.srs.dueList().length + "）",
@@ -118,8 +118,8 @@ t("CH.5 仍锁定", GX.mapUnlocked(5) === false);
 
 /* ---------- 游戏注册表 ---------- */
 console.log("[registry]");
-t("注册表 5 款（含 boss 锁 M3）", GX.gameList.length === 5 && GX.gameList[4].locked === "M3");
-t("4 款可玩游戏均有入口", GX.gameList.slice(0, 4).every(g => g.entry && !g.locked));
+t("注册表 5 款（M3 起 boss 解锁）", GX.gameList.length === 5 && !GX.gameList[4].locked);
+t("5 款可玩游戏均有入口", GX.gameList.every(g => g.entry && !g.locked));
 t("三款新游戏模块已加载", !!(GX.games.itto && GX.games.match && GX.games.chain));
 
 /* ---------- 恢复存档 ---------- */

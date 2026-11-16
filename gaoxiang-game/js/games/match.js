@@ -164,6 +164,7 @@ GX.games.match = {
     }[grade];
 
     GX.daily.done("match");
+    GX.stats.recordGame("match", grade);
     GX.store.save();
     GX.ui.syncTop();
 

@@ -63,6 +63,37 @@ GX.games.itto = {
       left: this.TIME, right: 0, wrong: 0,
       binCnt: { input: 0, tool: 0, output: 0 },
       domainName: key === "mix" ? "混合挑战" : GX_ITTO.byDomain(key).name,
+      mode: "normal",
+      timerId: null, over: false
+    };
+    this.battle();
+    var self = this;
+    this.state.timerId = setInterval(function () { self.tick(); }, 100);
+  },
+
+  /* ---------- 错题清扫模式：重分拣到期错卡 ---------- */
+  runReview: function () {
+    var today = GX.util.today();
+    var due = GX.store.data.wrong.filter(function (w) {
+      return (w.type || "single") === "itto" && w.next <= today;
+    });
+    var deck = [];
+    due.forEach(function (w) {
+      var card = GX_ITTO.cardById(w.qid);
+      if (!card) return;
+      var ch = 0;
+      for (var i = 0; i < GX_ITTO.domains.length; i++) {
+        if (GX_ITTO.domains[i].cards.indexOf(card) >= 0) { ch = GX_ITTO.domains[i].ch; break; }
+      }
+      deck.push({ c: card, ch: ch, qid: w.qid });
+    });
+    if (!deck.length) { GX.ui.toast("没有到期的 ITTO 错卡", "o"); return; }
+
+    this.state = {
+      deck: deck, idx: 0,
+      left: this.TIME * 2, right: 0, wrong: 0,
+      binCnt: { input: 0, tool: 0, output: 0 },
+      domainName: "错题清扫", mode: "review",
       timerId: null, over: false
     };
     this.battle();
@@ -78,8 +109,9 @@ GX.games.itto = {
     var bar = document.getElementById("ittoBar");
     var num = document.getElementById("ittoNum");
     var wrap = document.getElementById("ittoBarWrap");
+    var max = s.mode === "review" ? this.TIME * 2 : this.TIME;
     if (num) num.textContent = s.left.toFixed(1) + "s";
-    if (bar) bar.style.width = (s.left / this.TIME * 100) + "%";
+    if (bar) bar.style.width = (s.left / max * 100) + "%";
     if (wrap) wrap.classList.toggle("ember", s.left < 10);
     if (s.left <= 0) this.result();
   },
@@ -99,9 +131,8 @@ GX.games.itto = {
       + '<span class="block-tag">' + s.domainName + '</span>'
       + '<span class="tagline">✓ ' + s.right + ' · ✗ ' + s.wrong + '</span>'
       + '</div>'
-
       + '<div class="timer-wrap" id="ittoBarWrap">'
-      + '<div class="timer-bar"><i id="ittoBar" style="width:' + (s.left / this.TIME * 100) + '%"></i></div>'
+      + '<div class="timer-bar"><i id="ittoBar" style="width:' + (s.left / (s.mode === "review" ? this.TIME * 2 : this.TIME) * 100) + '%"></i></div>'
       + '<span class="timer-num" id="ittoNum">' + s.left.toFixed(1) + 's</span></div>'
 
       + '<div class="sort-card" id="sortCard">'
@@ -129,7 +160,9 @@ GX.games.itto = {
     var item = s.deck[s.idx];
     var right = (item.c.cat === cat);
 
-    GX.stats.recordRaw(item.ch, right);
+    /* 错卡入错题本（qid = 卡片 id，type = itto），供错题清扫复习 */
+    var qid = item.qid || item.c.id;
+    GX.stats.recordRaw(item.ch, right, right ? (item.qid || null) : qid, "itto");
 
     var card = document.getElementById("sortCard");
     var bin = document.getElementById("bin" + cat.charAt(0).toUpperCase() + cat.slice(1));
@@ -140,10 +173,12 @@ GX.games.itto = {
       s.idx++;
       if (card) card.classList.add("hit");
       if (bin) bin.classList.add("ok");
+      /* 清扫模式：答对即推进记忆度周期（可能出库） */
+      if (s.mode === "review" && item.qid) GX.srs.onCorrect(item.qid);
     } else {
       s.wrong++;
       s.left = Math.max(0, s.left - this.PENALTY);
-      s.deck.push(item);          /* 错卡排到队尾，稍后再战 */
+      if (s.mode !== "review") s.deck.push(item);   /* 清扫模式不重复排队 */
       s.idx++;
       if (card) card.classList.add("miss");
       if (bin) bin.classList.add("no");
@@ -186,7 +221,8 @@ GX.games.itto = {
       F: "分类混乱……去考点歼灭里补课"
     }[grade];
 
-    GX.daily.done("itto");
+    GX.daily.done(s.mode === "review" ? "review" : "itto");
+    GX.stats.recordGame("itto", grade);
     GX.store.save();
     GX.ui.syncTop();
 

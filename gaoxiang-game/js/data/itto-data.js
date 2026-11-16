@@ -183,6 +183,15 @@ window.GX_ITTO = {
     return null;
   },
 
+  /* 按 id 查卡片 */
+  cardById: function (id) {
+    for (var i = 0; i < this.domains.length; i++) {
+      var list = this.domains[i].cards;
+      for (var j = 0; j < list.length; j++) if (list[j].id === id) return list[j];
+    }
+    return null;
+  },
+
   /* 混合模式：从全部知识域抽样组牌 */
   mix: function (n) {
     var all = [];
