@@ -569,9 +569,11 @@ GX.pages = {
     /* 按题型分组：single 单选 / itto 卡片 / chain 流程 */
     var groups = { single: [], itto: [], chain: [] };
     d.wrong.slice().sort(function (a, b) { return a.next < b.next ? -1 : 1; }).forEach(function (w) {
-      var t = w.type || "single";
-      if (!groups[t]) groups[t] = w.qid.indexOf("fl") === 0 ? "chain" : (w.qid.indexOf("itto") === 0 ? "itto" : "single");
-      groups[groups[t]].push(w);
+      var t = w.type;
+      /* 旧存档无 type：按 id 前缀推断 */
+      if (!t) t = w.qid.indexOf("fl") === 0 ? "chain" : (w.qid.indexOf("itto") === 0 ? "itto" : "single");
+      if (!groups[t]) groups[t] = [];
+      groups[t].push(w);
     });
 
     var groupName = { single: "单选错题", itto: "ITTO 卡片", chain: "流程错题" };

@@ -185,6 +185,16 @@ t("答对后 next 推后", w0b.next > GX.util.today());
 GX.store.data.wrong.forEach(w => { w.next = "2000-01-01"; });
 t("到期队列含全部 3 条", GX.srs.dueList().length === 3);
 
+/* 错题页渲染：三种题型混存时不得抛错，且分组齐全 */
+let wrongHtml = "";
+const origView = GX.ui.view;
+GX.ui.view = (h) => { wrongHtml = h; };
+let wrongErr = null;
+try { GX.pages.wrong(); } catch (e) { wrongErr = e; }
+GX.ui.view = origView;
+t("错题页渲染不抛错", wrongErr === null);
+t("错题页三类分组齐全", wrongHtml.indexOf("单选错题") >= 0 && wrongHtml.indexOf("ITTO 卡片") >= 0 && wrongHtml.indexOf("流程错题") >= 0);
+
 /* ---------- 游戏注册表 ---------- */
 console.log("[registry]");
 t("注册表 5 款全部可玩", GX.gameList.length === 5 && GX.gameList.every(g => g.entry && !g.locked));
