@@ -35,12 +35,17 @@ GX.util = {
       if (order[i] === q.ans) ans = i;
     }
     return {
-      id: q.id, ch: q.ch, type: q.type, diff: q.diff, tags: q.tags,
+      id: q.id, ch: q.ch, type: q.type, diff: q.diff, tags: q.tags, src: q.src,
       q: q.q, opts: opts, ans: ans, exp: q.exp
     };
   },
   esc: function (s) {
     return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  },
+  /* 溯源标记（教材出处） */
+  srcTag: function (q) {
+    if (!q || !q.src) return "";
+    return '<div class="tagline" style="margin-top:6px">教材依据：' + this.esc(q.src) + '</div>';
   }
 };
 

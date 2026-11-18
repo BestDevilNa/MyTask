@@ -163,7 +163,7 @@ GX.games.boss = {
         '<div class="exp-box' + (right ? "" : " wrong") + '">'
         + '<b>' + (right ? "✓ 命中" : "✗ 答错") + '</b>'
         + (right ? "" : '<br>正确答案：<b>' + "ABCD"[q.ans] + ". " + q.opts[q.ans] + '</b>')
-        + '<br><b>解析</b> ' + q.exp + '</div>'
+        + '<br><b>解析</b> ' + q.exp + GX.util.srcTag(q) + '</div>'
         + '<div style="text-align:right;margin-top:12px"><button class="btn primary" onclick="GX.games.boss.next()">'
         + (s.idx + 1 >= s.qs.length ? "结算 ▼" : "下一题 ▼")
         + '</button></div>';
