@@ -18,8 +18,8 @@ global.localStorage = { _s: {}, getItem(k) { return this._s[k] || null; }, setIt
 const base = new URL("./gaoxiang-game/js/", import.meta.url).pathname;
 require(base + "data/meta.js");
 require(base + "data/bank.js");
-["ext/ext-g1.js", "ext/ext-g2.js", "ext/ext-g3.js", "ext/ext-g4.js", "ext/ext-g5.js", "ext/ext-g6.js"]
-  .forEach(f => { try { require(base + f); } catch (e) { console.log("  (缺少 " + f + ")"); } });
+["data/ext/ext-g1.js", "data/ext/ext-g2.js", "data/ext/ext-g3.js", "data/ext/ext-g4.js", "data/ext/ext-g5.js", "data/ext/ext-g6.js"]
+  .forEach(f => { try { require(base + f); } catch (e) { console.log("  (缺少 " + f + "：" + e.message + ")"); } });
 require(base + "data/normalize.js");
 require(base + "app.js");
 

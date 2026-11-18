@@ -805,6 +805,8 @@ GX.pages = {
       + '<div class="board-games">' + games + '</div>'
       + '<div class="row" style="margin-top:12px"><span style="font-size:13px">案例分析</span>'
       + '<span class="tagline">' + (d.stats.case.attempts || 0) + ' 次 · 最佳 ' + (d.stats.case.best || 0) + '%</span></div>'
+      + '<div class="row" style="margin-top:8px"><span style="font-size:13px">内置题库</span>'
+      + '<span class="tagline">' + (GX_BANK.total || 0) + ' 题 · 24 章 · 按《教程》第 4 版等权威教材编写</span></div>'
       + '</div>'
 
       + '<div class="panel" style="margin-bottom:16px">'
